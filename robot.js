@@ -4,46 +4,70 @@ const app = express();
 
 app.use(express.json());
 
-// Ruta para verificar si el robot está encendido
+// 1. Ruta de salud para verificar que el robot vive
 app.get('/health', (req, res) => res.send("🤖 Robot Operativo y listo para monitorear."));
 
+// 2. Ruta principal para recibir la orden desde la Plataforma Logística
 app.post('/api/robot', async (req, res) => {
     const { placa, config_gps, cont } = req.body;
+    
     console.log(`[ROBOT] 📥 Orden recibida: Placa ${placa} | Contenedor ${cont}`);
 
-    // Respondemos rápido para que la web no se quede "pensando"
-    res.status(200).json({ mensaje: "Monitoreo en proceso" });
+    // Respondemos de inmediato para que la plataforma no se quede bloqueada
+    res.status(200).json({ mensaje: "Monitoreo iniciado correctamente" });
 
     let browser;
     try {
+        console.log(`[SISTEMA] Iniciando navegador para ${placa}...`);
+        
         browser = await puppeteer.launch({
             headless: "new",
+            // ESTA RUTA ES CRÍTICA PARA RENDER:
+            executablePath: '/opt/render/.cache/puppeteer/chrome/linux-121.0.6167.85/chrome-linux64/chrome',
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
-                '--single-process'
+                '--single-process',
+                '--no-zygote'
             ]
         });
 
         const page = await browser.newPage();
-        console.log(`[NAVEGADOR] Abriendo GPS: ${config_gps.url}`);
         
-        await page.goto(config_gps.url, { waitUntil: 'networkidle2', timeout: 60000 });
+        // Ajustamos el tamaño de la ventana para ahorrar RAM
+        await page.setViewport({ width: 1280, height: 800 });
 
-        // Ejemplo de logueo (esto lo ajustamos según la web del GPS)
-        console.log(`[LOGIN] Intentando acceso para contenedor: ${cont}`);
+        console.log(`[NAVEGADOR] Entrando al GPS: ${config_gps.url}`);
         
-        // Mantener el navegador abierto o tomar captura
-        console.log(`[EXITO] Monitoreando placa: ${placa}`);
+        // Intentamos entrar a la URL del GPS
+        await page.goto(config_gps.url, { 
+            waitUntil: 'networkidle2', 
+            timeout: 60000 
+        });
+
+        console.log(`[LOGIN] Procesando contenedor: ${cont}`);
+        
+        // Aquí el robot ya está dentro de la web. 
+        // Puedes agregar comandos como page.type() o page.click() si los necesitas.
+        
+        console.log(`[EXITO] Monitoreo activo para placa: ${placa}`);
 
     } catch (err) {
-        console.error(`[ERROR] Fallo en el robot: ${err.message}`);
+        console.error(`[ERROR] El robot falló: ${err.message}`);
     } finally {
-        // Opcional: Cerrar después de un tiempo para no llenar la RAM de Render
+        // Mantenemos el navegador abierto un tiempo o lo cerramos según prefieras
+        // Para pruebas iniciales, lo dejamos abierto.
         // if (browser) await browser.close();
     }
 });
 
+// 3. Configuración del Puerto
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🚀 Robot escuchando en puerto ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`-----------------------------------------`);
+    console.log(`🚀 YEGO ROBOT WORKER V20`);
+    console.log(`📍 Puerto: ${PORT}`);
+    console.log(`🤖 Estado: LISTO`);
+    console.log(`-----------------------------------------`);
+});
