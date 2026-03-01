@@ -4,59 +4,46 @@ const app = express();
 
 app.use(express.json());
 
-// Ruta de prueba para saber si el robot está vivo
-app.get('/health', (req, res) => res.send("Robot Operativo 🤖✅"));
+// Ruta para verificar si el robot está encendido
+app.get('/health', (req, res) => res.send("🤖 Robot Operativo y listo para monitorear."));
 
 app.post('/api/robot', async (req, res) => {
     const { placa, config_gps, cont } = req.body;
-    
-    console.log(`[ROBOT] 🤖 Orden recibida para Placa: ${placa}`);
-    
-    // Respondemos de inmediato para que la plataforma no se quede esperando
-    res.status(200).json({ mensaje: "Proceso de monitoreo iniciado" });
+    console.log(`[ROBOT] 📥 Orden recibida: Placa ${placa} | Contenedor ${cont}`);
+
+    // Respondemos rápido para que la web no se quede "pensando"
+    res.status(200).json({ mensaje: "Monitoreo en proceso" });
 
     let browser;
     try {
-        console.log(`[NAVEGADOR] Intentando abrir Chrome para: ${placa}`);
-        
         browser = await puppeteer.launch({
-            headless: "new", // "new" es el modo recomendado en versiones actuales
+            headless: "new",
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage', // Vital para que no se cierre en Render Free
+                '--disable-dev-shm-usage',
                 '--single-process'
             ]
         });
 
         const page = await browser.newPage();
+        console.log(`[NAVEGADOR] Abriendo GPS: ${config_gps.url}`);
         
-        // Ajustamos el tiempo de espera (30 segundos)
-        await page.setDefaultNavigationTimeout(30000);
+        await page.goto(config_gps.url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        console.log(`[NAVEGADOR] Entrando a la URL del GPS...`);
-        await page.goto(config_gps.url, { waitUntil: 'networkidle2' });
-
-        // Aquí el robot interactúa con el GPS
-        console.log(`[LOGIN] Usando usuario: ${config_gps.usuario}`);
-        // Ejemplo de logueo (esto depende de cada plataforma GPS):
-        // await page.type('#user', config_gps.usuario);
-        // await page.type('#pass', config_gps.clave);
-        // await page.click('#loginBtn');
-
-        console.log(`[EXITO] Monitoreando contenedor: ${cont} | Placa: ${placa}`);
+        // Ejemplo de logueo (esto lo ajustamos según la web del GPS)
+        console.log(`[LOGIN] Intentando acceso para contenedor: ${cont}`);
         
-        // Mantener abierto el tiempo necesario o cerrar tras la acción
-        // await browser.close(); 
+        // Mantener el navegador abierto o tomar captura
+        console.log(`[EXITO] Monitoreando placa: ${placa}`);
 
     } catch (err) {
-        console.error(`[ERROR] Fallo en el robot para ${placa}:`, err.message);
-        if (browser) await browser.close();
+        console.error(`[ERROR] Fallo en el robot: ${err.message}`);
+    } finally {
+        // Opcional: Cerrar después de un tiempo para no llenar la RAM de Render
+        // if (browser) await browser.close();
     }
 });
 
-// Usamos el puerto que Render nos asigne o el 4000 por defecto
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-    console.log(`🚀 Robot activo y escuchando en puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Robot escuchando en puerto ${PORT}`));
