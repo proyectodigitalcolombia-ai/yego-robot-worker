@@ -1,41 +1,30 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
 const app = express();
-
 app.use(express.json());
 
 app.post('/api/robot', async (req, res) => {
-    const { placa, config_gps, contenedor } = req.body;
-    
-    console.log(`[ORDEN] 🤖 Iniciando rastreo: Placa ${placa}`);
+    const { placa, config_gps, cont } = req.body;
+    console.log(`[ROBOT] 🤖 Orden recibida para Placa: ${placa}`);
 
-    // Respuesta rápida al servidor de logística
-    res.status(200).json({ status: 'Robot en camino' });
+    res.status(200).json({ mensaje: "Iniciado" });
 
     try {
         const browser = await puppeteer.launch({
             headless: "new",
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
-        
         const page = await browser.newPage();
         
-        // El robot va a la URL que recibió de la base de datos
-        console.log(`[NAVEGADOR] Abriendo: ${config_gps.url}`);
-        await page.goto(config_gps.url, { waitUntil: 'networkidle2' });
+        console.log(`[NAVEGADOR] Entrando a: ${config_gps.url}`);
+        await page.goto(config_gps.url);
 
-        // Lógica de Login (aquí se automatiza el ingreso)
-        console.log(`[LOGIN] Usando usuario: ${config_gps.usuario}`);
-        
-        // Simulación de espera de carga
-        await new Promise(r => setTimeout(r, 5000));
-        
-        console.log(`[EXITO] Robot monitoreando contenedor: ${contenedor}`);
+        // Aquí el robot haría el login automático con config_gps.usuario y clave
+        console.log(`[EXITO] Monitoreando contenedor: ${cont}`);
         
     } catch (err) {
-        console.error("[ERROR ROBOT]", err.message);
+        console.error("Error en el robot:", err.message);
     }
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Robot activo en puerto ${PORT}`));
+app.listen(process.env.PORT || 4000, () => console.log("Robot activo puerto 4000"));
