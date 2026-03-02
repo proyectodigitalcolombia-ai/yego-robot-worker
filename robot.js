@@ -10,15 +10,21 @@ app.post('/api/robot', async (req, res) => {
     const urlSatrack = "https://login.satrack.com/login";
     
     console.log(`[ROBOT] 📥 Orden recibida: Placa ${placa}`);
+    
+    // Verificación de seguridad de la variable de entorno
+    if (!process.env.PUPPETEER_EXECUTABLE_PATH) {
+        console.error("[CRÍTICO] La variable PUPPETEER_EXECUTABLE_PATH no está definida en Render.");
+    }
+
     res.status(200).json({ mensaje: "Robot iniciando en Satrack", placa });
 
     let browser;
     try {
-        console.log(`[SISTEMA] Lanzando navegador...`);
+        console.log(`[SISTEMA] Intentando lanzar Chrome desde: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
         
         browser = await puppeteer.launch({
             headless: "new",
-            // Forzamos a Puppeteer a buscar en la carpeta de instalación de Render
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, // Forzamos la ruta manual
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -35,7 +41,7 @@ app.post('/api/robot', async (req, res) => {
         console.log(`[SATRACK] Abriendo página de login...`);
         await page.goto(urlSatrack, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        console.log(`[SATRACK] Identificando campos para ${usuario_gps}...`);
+        console.log(`[SATRACK] Escribiendo credenciales para: ${usuario_gps}`);
         await page.waitForSelector('input[name="username"]', { visible: true, timeout: 15000 });
         
         await page.type('input[name="username"]', usuario_gps);
@@ -47,18 +53,30 @@ app.post('/api/robot', async (req, res) => {
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
         ]);
 
-        console.log(`[EXITO] Sesión abierta para la placa ${placa}`);
+        console.log(`[EXITO] Sesión abierta correctamente para ${placa}`);
+
+        // Aquí podrías capturar una captura de pantalla para debug:
+        // await page.screenshot({ path: 'evidencia.png' });
 
     } catch (error) {
-        console.error(`[ERROR] Falló el proceso: ${error.message}`);
+        console.error(`[ERROR] El robot falló: ${error.message}`);
     } finally {
         if (browser) {
+            console.log(`[SISTEMA] Cerrando navegador...`);
             await browser.close();
-            console.log(`[SISTEMA] Proceso terminado para ${placa}.`);
         }
     }
 });
 
-app.get('/', (req, res) => res.send('🤖 ROBOT SATRACK V20 LISTO'));
+app.get('/', (req, res) => {
+    res.send(`
+        <h1>🤖 YEGO ROBOT WORKER V20</h1>
+        <p>Estado: LISTO</p>
+        <p>Ruta de Chrome: ${process.env.PUPPETEER_EXECUTABLE_PATH || 'No configurada'}</p>
+    `);
+});
 
-app.listen(PORT, () => console.log(`🚀 Robot en puerto ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Robot Satrack escuchando en puerto ${PORT}`);
+    console.log(`📍 Path configurado: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+});
