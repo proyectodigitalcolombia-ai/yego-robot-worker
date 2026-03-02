@@ -11,55 +11,57 @@ app.post('/api/robot', async (req, res) => {
     
     console.log(`[ROBOT] 📥 Orden recibida: Placa ${placa}`);
     
-    // Verificación de seguridad de la variable de entorno
-    if (!process.env.PUPPETEER_EXECUTABLE_PATH) {
-        console.error("[CRÍTICO] La variable PUPPETEER_EXECUTABLE_PATH no está definida en Render.");
-    }
-
-    res.status(200).json({ mensaje: "Robot iniciando en Satrack", placa });
+    // Responder de inmediato a la plataforma para evitar timeouts
+    res.status(200).json({ mensaje: "Robot procesando en segundo plano", placa });
 
     let browser;
     try {
-        console.log(`[SISTEMA] Intentando lanzar Chrome desde: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+        console.log(`[SISTEMA] Lanzando desde: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
         
         browser = await puppeteer.launch({
             headless: "new",
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, // Forzamos la ruta manual
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
                 '--disable-gpu',
-                '--single-process',
-                '--no-zygote'
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
             ]
         });
 
         const page = await browser.newPage();
+        // Definir un User Agent real para evitar ser detectado como bot básico
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
         await page.setViewport({ width: 1280, height: 800 });
 
         console.log(`[SATRACK] Abriendo página de login...`);
         await page.goto(urlSatrack, { waitUntil: 'networkidle2', timeout: 60000 });
 
         console.log(`[SATRACK] Escribiendo credenciales para: ${usuario_gps}`);
-        await page.waitForSelector('input[name="username"]', { visible: true, timeout: 15000 });
+        await page.waitForSelector('input[name="username"]', { visible: true, timeout: 20000 });
         
-        await page.type('input[name="username"]', usuario_gps);
-        await page.type('input[name="password"]', clave_gps);
+        await page.type('input[name="username"]', usuario_gps, { delay: 100 });
+        await page.type('input[name="password"]', clave_gps, { delay: 100 });
 
         console.log(`[SATRACK] Pulsando botón de ingreso...`);
+        // Intentar clic en el botón de submit
         await Promise.all([
             page.click('button[type="submit"]'),
-            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
         ]);
 
         console.log(`[EXITO] Sesión abierta correctamente para ${placa}`);
 
-        // Aquí podrías capturar una captura de pantalla para debug:
-        // await page.screenshot({ path: 'evidencia.png' });
-
     } catch (error) {
         console.error(`[ERROR] El robot falló: ${error.message}`);
+        // Log extra para ver si el archivo realmente no existe
+        if (error.message.includes('ENOENT')) {
+            console.error(`[DIAGNOSTICO] El ejecutable en ${process.env.PUPPETEER_EXECUTABLE_PATH} NO fue encontrado.`);
+        }
     } finally {
         if (browser) {
             console.log(`[SISTEMA] Cerrando navegador...`);
@@ -70,13 +72,15 @@ app.post('/api/robot', async (req, res) => {
 
 app.get('/', (req, res) => {
     res.send(`
-        <h1>🤖 YEGO ROBOT WORKER V20</h1>
-        <p>Estado: LISTO</p>
-        <p>Ruta de Chrome: ${process.env.PUPPETEER_EXECUTABLE_PATH || 'No configurada'}</p>
+        <div style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+            <h1>🤖 YEGO ROBOT WORKER V20</h1>
+            <p style="color: green;">ESTADO: LISTO Y ESCUCHANDO</p>
+            <hr style="width: 50%;">
+            <p><strong>Ruta configurada:</strong><br> <code>${process.env.PUPPETEER_EXECUTABLE_PATH || 'No definida'}</code></p>
+        </div>
     `);
 });
 
 app.listen(PORT, () => {
     console.log(`🚀 Robot Satrack escuchando en puerto ${PORT}`);
-    console.log(`📍 Path configurado: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
 });
