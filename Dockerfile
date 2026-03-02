@@ -1,26 +1,25 @@
-# Usamos la imagen oficial que ya trae Chrome y Node instalados
-FROM ghcr.io/puppeteer/puppeteer:latest
+# Usamos una versión estable y comprobada
+FROM ghcr.io/puppeteer/puppeteer:21.6.1
 
-# Cambiamos a root para asegurar permisos de ejecución
+# Cambiamos a root para instalar herramientas de sistema
 USER root
 
-# Variables de entorno para que Puppeteer sepa dónde está Chrome
+# Instalamos 'which' para localizar el binario de Chrome automáticamente
+RUN apt-get update && apt-get install -y which && rm -rf /var/lib/apt/lists/*
+
+# Variables de entorno críticas
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 WORKDIR /app
 
-# Copiamos archivos de dependencias
+# Instalación de dependencias
 COPY package*.json ./
-
-# Instalamos librerías (Omitimos descargar otro Chrome para ahorrar RAM)
 RUN npm install --omit=dev
 
-# Copiamos todo tu código
+# Copiamos el código
 COPY . .
 
-# Puerto estándar de Render
 EXPOSE 10000
 
-# Comando de inicio
 CMD ["node", "robot.js"]
