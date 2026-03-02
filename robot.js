@@ -9,94 +9,74 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 
 /**
- * FUNCIÓN DE BÚSQUEDA RECURSIVA EN NODE_MODULES
+ * FUNCIÓN PARA DETECTAR CHROME EN ENTORNO DOCKER
+ * En la imagen oficial de Puppeteer, Chrome siempre está en estas rutas.
  */
 const getExecutablePath = () => {
-    // Apuntamos a la carpeta de caché que creamos en build.sh
-    const localDir = path.join(__dirname, 'node_modules', '.cache', 'puppeteer');
-    
-    if (!fs.existsSync(localDir)) {
-        console.log("❌ Carpeta de caché no encontrada en: " + localDir);
-        return null;
-    }
+    const paths = [
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser'
+    ];
 
-    const findBinary = (dir) => {
-        try {
-            const items = fs.readdirSync(dir);
-            for (const item of items) {
-                const fullPath = path.join(dir, item);
-                const stat = fs.statSync(fullPath);
-                
-                if (stat.isDirectory()) {
-                    const found = findBinary(fullPath);
-                    if (found) return found;
-                } else if (item === 'chrome' && !fullPath.includes('.sh') && !fullPath.includes('headless-shell')) {
-                    return fullPath;
-                }
-            }
-        } catch (e) {
-            return null;
-        }
-        return null;
-    };
-    return findBinary(localDir);
+    for (const exePath of paths) {
+        if (fs.existsSync(exePath)) return exePath;
+    }
+    return null;
 };
 
-/**
- * VISTA PRINCIPAL PARA VERIFICACIÓN
- */
+// Ruta de bienvenida y verificación
 app.get('/', (req, res) => {
     const exePath = getExecutablePath();
     if (exePath) {
         res.send(`
             <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-                <h1 style="color: #2c3e50;">🤖 Robot Worker Activo</h1>
-                <div style="background: #d4edda; color: #155724; padding: 20px; border-radius: 10px; display: inline-block; border: 1px solid #c3e6cb;">
-                    <p style="margin: 0;">✅ <b>Chrome Detectado y Persistente:</b></p>
-                    <code style="display: block; margin-top: 10px; background: white; padding: 5px;">${exePath}</code>
+                <h1 style="color: #2ecc71;">🤖 Robot Worker: ONLINE</h1>
+                <div style="background: #e8f8f5; border: 1px solid #2ecc71; padding: 20px; border-radius: 8px; display: inline-block;">
+                    <p>✅ <b>Chrome de Sistema detectado:</b></p>
+                    <code>${exePath}</code>
                 </div>
-                <p style="color: #7f8c8d; margin-top: 20px;">Listo para procesar placas de Satrack.</p>
+                <p style="margin-top: 20px; color: #7f8c8d;">Listo para procesar placas en <code>/api/robot</code></p>
             </div>
         `);
     } else {
         res.send(`
             <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-                <h1 style="color: #2c3e50;">🤖 Robot Worker Activo</h1>
-                <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 10px; display: inline-block; border: 1px solid #f5c6cb;">
-                    ❌ <b>Chrome:</b> NO INSTALADO EN NODE_MODULES
-                </div>
-                <p>Ejecuta un "Clear Cache and Deploy" en Render.</p>
+                <h1 style="color: #e74c3c;">🤖 Robot Worker: ERROR</h1>
+                <p>❌ No se encontró Google Chrome en el sistema Docker.</p>
             </div>
         `);
     }
 });
 
 /**
- * ENDPOINT PARA EL ROBOT
+ * API PARA SATRACK (Lógica de Navegación)
  */
 app.post('/api/robot', async (req, res) => {
     const { placa, usuario_gps, clave_gps } = req.body;
     const exePath = getExecutablePath();
 
-    if (!exePath) return res.status(500).json({ error: "Chrome no disponible" });
+    if (!placa || !usuario_gps || !clave_gps) {
+        return res.status(400).json({ error: "Faltan datos requeridos (placa, usuario, clave)" });
+    }
 
     let browser;
     try {
+        console.log(`🚀 Iniciando búsqueda para: ${placa}`);
+        
         browser = await puppeteer.launch({
             executablePath: exePath,
             headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu'
+            ]
         });
-        
-        const page = await browser.newPage();
-        // Aquí irá tu código de Satrack...
-        
-        res.json({ status: "success", placa });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (browser) await browser.close();
-    }
-});
 
-app.listen(PORT, () => console.log(`🚀 Robot encendido en puerto ${PORT}`));
+        const page = await browser.newPage();
+        
+        // 1. Ir a Satrack (Ejemplo de flujo)
+        await page.goto('https://www.satrack.com.co/', { waitUntil: 'network
