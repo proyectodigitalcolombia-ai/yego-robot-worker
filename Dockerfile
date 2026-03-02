@@ -1,25 +1,24 @@
-# Usamos una versión estable y comprobada
+# Usamos la imagen oficial estable
 FROM ghcr.io/puppeteer/puppeteer:21.6.1
 
-# Cambiamos a root para instalar herramientas de sistema
-USER root
-
-# Instalamos 'which' para localizar el binario de Chrome automáticamente
-RUN apt-get update && apt-get install -y which && rm -rf /var/lib/apt/lists/*
-
-# Variables de entorno críticas
+# No necesitamos ser root si no vamos a instalar paquetes de sistema
+# Pero nos aseguramos de que las variables apunten al lugar correcto
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 WORKDIR /app
 
-# Instalación de dependencias
+# Copiar dependencias
 COPY package*.json ./
+
+# Instalación limpia
 RUN npm install --omit=dev
 
-# Copiamos el código
+# Copiar el código del robot
 COPY . .
 
+# Puerto para Render
 EXPOSE 10000
 
+# Ejecutar
 CMD ["node", "robot.js"]
