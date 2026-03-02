@@ -7,12 +7,11 @@ const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 
-// Función para encontrar el ejecutable automáticamente en la carpeta local
+// Función inteligente para localizar el ejecutable de Chrome en la carpeta local
 const getExecutablePath = () => {
     const localDir = path.join(__dirname, 'chrome_data');
     if (!fs.existsSync(localDir)) return null;
 
-    // Buscamos recursivamente el archivo 'chrome'
     const findChrome = (dir) => {
         const files = fs.readdirSync(dir);
         for (const file of files) {
@@ -21,6 +20,7 @@ const getExecutablePath = () => {
                 const found = findChrome(fullPath);
                 if (found) return found;
             } else if (file === 'chrome' && !fullPath.includes('.sh')) {
+                // Verificamos que sea el binario ejecutable
                 return fullPath;
             }
         }
@@ -33,46 +33,67 @@ app.post('/api/robot', async (req, res) => {
     const { placa, usuario_gps, clave_gps } = req.body;
     console.log(`[ROBOT] 📥 Orden recibida: Placa ${placa}`);
     
-    res.status(200).json({ mensaje: "Robot iniciando...", placa });
+    // Responder rápido para evitar que la plataforma logística marque error de timeout
+    res.status(200).json({ mensaje: "Robot iniciando proceso en segundo plano...", placa });
 
     let browser;
     try {
         const exePath = getExecutablePath();
-        console.log(`[SISTEMA] Usando Chrome en: ${exePath || 'NO ENCONTRADO'}`);
+        console.log(`[SISTEMA] Intentando abrir Chrome en: ${exePath || 'NO ENCONTRADO'}`);
 
-        if (!exePath) throw new Error("No se encontró el ejecutable de Chrome. Revisa el Build.");
+        if (!exePath) {
+            throw new Error("ERROR CRÍTICO: El ejecutable de Chrome no existe. Revisa el Build Log.");
+        }
 
         browser = await puppeteer.launch({
             headless: "new",
             executablePath: exePath,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--single-process', '--no-zygote']
+            protocolTimeout: 120000, // 2 minutos para procesos lentos en Render
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-zygote',
+                '--single-process'
+            ]
         });
 
         const page = await browser.newPage();
-        console.log(`[SATRACK] Abriendo login...`);
-        await page.goto("https://login.satrack.com/login", { waitUntil: 'networkidle2' });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1280, height: 800 });
 
-        await page.waitForSelector('input[name="username"]', { visible: true });
-        await page.type('input[name="username"]', usuario_gps);
-        await page.type('input[name="password"]', clave_gps);
+        console.log(`[SATRACK] Cargando página de login...`);
+        await page.goto("https://login.satrack.com/login", { 
+            waitUntil: 'networkidle2', 
+            timeout: 60000 
+        });
+
+        console.log(`[SATRACK] Ingresando datos para ${usuario_gps}...`);
+        await page.waitForSelector('input[name="username"]', { visible: true, timeout: 20000 });
         
+        await page.type('input[name="username"]', usuario_gps, { delay: 50 });
+        await page.type('input[name="password"]', clave_gps, { delay: 50 });
+
+        console.log(`[SATRACK] Haciendo clic en el botón...`);
         await Promise.all([
             page.click('button[type="submit"]'),
-            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 45000 }),
         ]);
 
-        console.log(`[EXITO] Sesión iniciada para ${placa}`);
+        console.log(`[EXITO] ✅ Sesión iniciada correctamente para ${placa}`);
 
     } catch (error) {
-        console.error(`[ERROR] ${error.message}`);
+        console.error(`[ERROR] ❌ Fallo en el robot: ${error.message}`);
     } finally {
-        if (browser) await browser.close();
+        if (browser) {
+            console.log(`[SISTEMA] Cerrando navegador para liberar memoria.`);
+            await browser.close();
+        }
     }
 });
 
 app.get('/', (req, res) => {
     const pathFound = getExecutablePath();
-    res.send(`<h1>🤖 Robot Worker</h1><p>Chrome: ${pathFound || '❌ NO INSTALADO'}</p>`);
-});
-
-app.listen(PORT, () => console.log(`🚀 Robot en puerto ${PORT}`));
+    res.send(`
+        <div style="font-family: Arial; text-align: center; padding: 50px; background: #f
