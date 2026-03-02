@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
-# Salir si hay error
 set -o errexit
 
-echo "--- 📦 PASO 1: INSTALANDO DEPENDENCIAS NPM ---"
-npm install --no-audit
+echo "--- 📦 PASO 1: INSTALANDO DEPENDENCIAS (MODO VERBOSE) ---"
+# Forzamos a npm a decirnos cada archivo que baja
+npm install --no-audit --loglevel=info
 
-echo "--- 📂 PASO 2: CREANDO CARPETA PARA CHROME ---"
+echo "--- 📂 PASO 2: LIMPIEZA ---"
+rm -rf ./chrome_data
 mkdir -p ./chrome_data
 
-echo "--- 📥 PASO 3: DESCARGANDO NAVEGADOR (ESTO TARDA) ---"
-# Usamos el comando directo de puppeteer para asegurar la descarga
+echo "--- 📥 PASO 3: DESCARGANDO CHROME ---"
 PUPPETEER_CACHE_DIR=./chrome_data node node_modules/puppeteer/install.mjs
 
-echo "--- 🔍 PASO 4: VERIFICANDO INSTALACIÓN ---"
-find ./chrome_data -name chrome -type f
-
-echo "--- ✅ PROCESO FINALIZADO CON ÉXITO ---"
+echo "--- ✅ BUILD COMPLETADO ---"
