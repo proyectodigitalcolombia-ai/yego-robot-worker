@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "./render-build.sh",
+    "build": "chmod +x render-build.sh && ./render-build.sh",
     "start": "node robot.js"
   },
   "dependencies": {
