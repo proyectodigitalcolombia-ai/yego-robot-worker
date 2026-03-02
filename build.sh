@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -o errexit
 
-echo "--- 📦 PASO 1: INSTALANDO DEPENDENCIAS (SIN CHROME) ---"
+echo "--- 📦 PASO 1: INSTALANDO DEPENDENCIAS ---"
 PUPPETEER_SKIP_DOWNLOAD=true npm install --no-audit
 
-echo "--- 📂 PASO 2: LIMPIEZA ---"
-rm -rf $PWD/chrome_data
-mkdir -p $PWD/chrome_data
+echo "--- 📂 PASO 2: PREPARANDO CARPETA PERSISTENTE ---"
+# Usamos una carpeta oculta que Render permite mantener
+export CHROME_DIR="/opt/render/project/.render/chrome"
+rm -rf "$CHROME_DIR"
+mkdir -p "$CHROME_DIR"
 
-echo "--- 📥 PASO 3: DESCARGANDO CHROME (RUTA ABSOLUTA) ---"
-# Usamos $PWD para asegurar que la ruta sea absoluta
-PUPPETEER_CACHE_DIR=$PWD/chrome_data node node_modules/puppeteer/install.mjs
+echo "--- 📥 PASO 3: DESCARGANDO CHROME ---"
+PUPPETEER_CACHE_DIR="$CHROME_DIR" node node_modules/puppeteer/install.mjs
 
 echo "--- ✅ BUILD COMPLETADO ---"
