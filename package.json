@@ -1,7 +1,6 @@
 {
   "name": "yego-robot-worker",
   "version": "1.0.0",
-  "description": "Robot Satrack para Yego Logistics",
   "main": "robot.js",
   "engines": {
     "node": "20.x"
