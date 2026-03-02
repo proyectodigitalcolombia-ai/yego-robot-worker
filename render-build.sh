@@ -2,10 +2,10 @@
 # Salir si hay errores
 set -o errexit
 
-# Instalar dependencias de Node
+# 1. Instalar dependencias
 npm install
 
-# Descargar Chrome en la carpeta del proyecto para que sea persistente
-echo "--- DESCARGANDO CHROME PARA PUPPETEER ---"
-PUPPETEER_CACHE_DIR=./.cache/puppeteer npx puppeteer install
-echo "--- INSTALACIÓN COMPLETADA ---"
+# 2. Descargar Chrome en una ruta absoluta que persiste en Render
+echo "--- INICIANDO DESCARGA DE CHROME ---"
+PUPPETEER_CACHE_DIR=/opt/render/project/src/.cache/puppeteer npx puppeteer install
+echo "--- CHROME DESCARGADO EXITOSAMENTE ---"
