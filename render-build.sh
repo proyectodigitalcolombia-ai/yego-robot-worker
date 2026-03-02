@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Salir si hay errores
 set -o errexit
 
-# 1. Instalar dependencias
 npm install
 
-# 2. Descargar Chrome en una ruta absoluta que persiste en Render
-echo "--- INICIANDO DESCARGA DE CHROME ---"
-PUPPETEER_CACHE_DIR=/opt/render/project/src/.cache/puppeteer npx puppeteer install
-echo "--- CHROME DESCARGADO EXITOSAMENTE ---"
+echo "--- FORZANDO INSTALACIÓN DE CHROME EN RUTA ABSOLUTA ---"
+# Instalamos Chrome directamente en la carpeta de ejecución de Render
+npx puppeteer install --path /opt/render/project/src/.cache/puppeteer
+
+echo "--- LISTANDO ARCHIVOS PARA VERIFICAR ---"
+ls -R /opt/render/project/src/.cache/puppeteer || echo "No se encontró la carpeta"
