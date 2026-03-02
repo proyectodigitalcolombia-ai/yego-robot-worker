@@ -1,23 +1,14 @@
-# Usamos una imagen que ya tiene Node y Chrome instalados
-FROM ghcr.io/puppeteer/puppeteer:21.6.1
+FROM node:20-slim
 
-# Cambiamos al usuario root para instalar dependencias
-USER root
+# Instalar las dependencias mínimas de Chrome en Linux
+RUN apt-get update && apt-get install -y \
+    google-chrome-stable \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
-# Creamos el directorio de la app
 WORKDIR /app
-
-# Copiamos el package.json
 COPY package*.json ./
-
-# Instalamos las dependencias
 RUN npm install
-
-# Copiamos el resto del código
 COPY . .
-
-# Exponemos el puerto de Render
 EXPOSE 10000
-
-# Comando para arrancar la app
 CMD ["node", "robot.js"]
