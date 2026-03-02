@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: yego-robot-worker
+    runtime: docker # <--- ESTO ES LO QUE IMPORTA
+    plan: starter   # O el plan que tengas activo
+    envVars:
+      - key: NODE_VERSION
+        value: 20
