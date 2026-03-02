@@ -1,20 +1,17 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
 const app = express();
+const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 
-// 1. Ruta de salud para verificar que el robot vive
-app.get('/health', (req, res) => res.send("🤖 Robot Operativo y listo para monitorear."));
-
-// 2. Ruta principal para recibir la orden desde la Plataforma Logística
 app.post('/api/robot', async (req, res) => {
-    const { placa, config_gps, cont } = req.body;
+    const { placa, url_plataforma, usuario_gps, clave_gps } = req.body;
     
-    console.log(`[ROBOT] 📥 Orden recibida: Placa ${placa} | Contenedor ${cont}`);
+    console.log(`[ROBOT] 📥 Orden recibida: Placa ${placa}`);
 
-    // Respondemos de inmediato para que la plataforma no se quede bloqueada
-    res.status(200).json({ mensaje: "Monitoreo iniciado correctamente" });
+    // Enviamos respuesta inmediata a la plataforma para que no se quede esperando
+    res.status(200).json({ mensaje: "Robot en camino", placa });
 
     let browser;
     try {
@@ -22,52 +19,48 @@ app.post('/api/robot', async (req, res) => {
         
         browser = await puppeteer.launch({
             headless: "new",
-            // ESTA RUTA ES CRÍTICA PARA RENDER:
-            executablePath: '/opt/render/.cache/puppeteer/chrome/linux-121.0.6167.85/chrome-linux64/chrome',
             args: [
-                '--no-sandbox', 
+                '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
-                '--single-process',
-                '--no-zygote'
+                '--disable-gpu',
+                '--single-process'
             ]
         });
 
         const page = await browser.newPage();
         
-        // Ajustamos el tamaño de la ventana para ahorrar RAM
-        await page.setViewport({ width: 1280, height: 800 });
+        // Configuramos un tiempo de espera largo para redes lentas
+        await page.setDefaultNavigationTimeout(60000);
 
-        console.log(`[NAVEGADOR] Entrando al GPS: ${config_gps.url}`);
+        console.log(`[NAVEGADOR] Entrando a: ${url_plataforma || 'URL no definida'}`);
         
-        // Intentamos entrar a la URL del GPS
-        await page.goto(config_gps.url, { 
-            waitUntil: 'networkidle2', 
-            timeout: 60000 
-        });
+        if (url_plataforma) {
+            await page.goto(url_plataforma, { waitUntil: 'networkidle2' });
+            
+            // Aquí el robot ya está en la web. 
+            // Podríamos agregar la lógica para escribir usuario y clave si nos das los IDs
+            console.log(`[EXITO] Robot posicionado en la web para placa: ${placa}`);
+        } else {
+            console.log(`[AVISO] No se recibió URL, el robot se detendrá.`);
+        }
 
-        console.log(`[LOGIN] Procesando contenedor: ${cont}`);
-        
-        // Aquí el robot ya está dentro de la web. 
-        // Puedes agregar comandos como page.type() o page.click() si los necesitas.
-        
-        console.log(`[EXITO] Monitoreo activo para placa: ${placa}`);
-
-    } catch (err) {
-        console.error(`[ERROR] El robot falló: ${err.message}`);
+    } catch (error) {
+        console.error(`[ERROR] El robot falló: ${error.message}`);
     } finally {
-        // Mantenemos el navegador abierto un tiempo o lo cerramos según prefieras
-        // Para pruebas iniciales, lo dejamos abierto.
-        // if (browser) await browser.close();
+        // Mantenemos el navegador abierto un momento y luego cerramos
+        // En un worker real, podrías dejarlo abierto haciendo el monitoreo
+        setTimeout(async () => {
+            if (browser) await browser.close();
+            console.log(`[SISTEMA] Navegador cerrado para ${placa}.`);
+        }, 30000); // 30 segundos de gracia
     }
 });
 
-// 3. Configuración del Puerto
-const PORT = process.env.PORT || 4000;
+app.get('/', (req, res) => {
+    res.send('🚀 YEGO ROBOT WORKER V20 - ACTIVO Y LISTO');
+});
+
 app.listen(PORT, () => {
-    console.log(`-----------------------------------------`);
-    console.log(`🚀 YEGO ROBOT WORKER V20`);
-    console.log(`📍 Puerto: ${PORT}`);
-    console.log(`🤖 Estado: LISTO`);
-    console.log(`-----------------------------------------`);
+    console.log(`🚀 Robot Worker escuchando en puerto ${PORT}`);
 });
