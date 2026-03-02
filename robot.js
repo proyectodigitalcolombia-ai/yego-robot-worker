@@ -1,22 +1,16 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
 const fs = require('fs');
-const path = require('path'); // <--- ¡Esto es vital para que funcione path.join!
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-
 app.use(express.json());
 
-// --- TU FUNCIÓN COMPLETA ---
+// FUNCIÓN DE BÚSQUEDA (La que ya tienes)
 const getExecutablePath = () => {
-    // __dirname nos da la ruta absoluta de la carpeta donde vive robot.js
     const localDir = path.join(__dirname, 'chrome_data');
-    
-    if (!fs.existsSync(localDir)) {
-        console.log("❌ La carpeta chrome_data no existe en: " + localDir);
-        return null;
-    }
+    if (!fs.existsSync(localDir)) return null;
 
     const findBinary = (dir) => {
         const items = fs.readdirSync(dir);
@@ -34,7 +28,7 @@ const getExecutablePath = () => {
     return findBinary(localDir);
 };
 
-// --- RUTA DE PRUEBA PARA VER EL RESULTADO ---
+// RUTA PARA PRUEBAS (Entra aquí desde tu navegador)
 app.get('/', (req, res) => {
     const exePath = getExecutablePath();
     if (exePath) {
@@ -44,10 +38,31 @@ app.get('/', (req, res) => {
     }
 });
 
-// --- TU LÓGICA DE API AQUÍ ---
+// LÓGICA DEL ROBOT
 app.post('/api/robot', async (req, res) => {
-    // Aquí es donde usarás: executablePath: getExecutablePath()
-    // ...
+    const { placa, usuario_gps, clave_gps } = req.body;
+    const exePath = getExecutablePath();
+
+    if (!exePath) {
+        return res.status(500).json({ error: "Chrome no instalado en el servidor" });
+    }
+
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            executablePath: exePath, // <--- USA LA RUTA QUE ENCONTRAMOS
+            headless: "new",
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        
+        // ... aquí va tu lógica de Satrack ...
+        res.json({ mensaje: "Robot trabajando...", placa });
+        
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    } finally {
+        if (browser) await browser.close();
+    }
 });
 
 app.listen(PORT, () => console.log(`🚀 Puerto: ${PORT}`));
